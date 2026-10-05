@@ -294,6 +294,56 @@ class PyFileError(SanicException):
         )
 
 
+class ConfigError(SanicException):
+    """配置版本化发布相关错误的基类。"""
+
+
+class ConfigValidationError(ConfigError):
+    """候选配置快照未通过校验时抛出。
+
+    所有校验器产生的错误信息会汇总在 ``errors`` 中，
+    校验失败时配置内容与版本号均保持不变。
+    """
+
+    def __init__(
+        self,
+        errors: str | Sequence[str],
+        status_code: int | None = None,
+        *,
+        quiet: bool | None = None,
+        context: dict[str, Any] | None = None,
+        extra: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ):
+        if isinstance(errors, str):
+            errors = [errors]
+        self.errors = tuple(str(error) for error in errors)
+        super().__init__(
+            "Config validation failed: " + "; ".join(self.errors),
+            status_code=status_code,
+            quiet=quiet,
+            context=context,
+            extra=extra,
+            headers=headers,
+        )
+
+
+class ConfigConflictError(ConfigError):
+    """候选快照基于已过期的版本，激活被拒绝。
+
+    并发发布者基于同一版本生成候选快照时，只有最先激活的
+    候选会成功，其余候选会收到本异常，重新 stage 后可重试。
+    """
+
+
+class ConfigStateError(ConfigError):
+    """当前配置版本状态不允许该操作。
+
+    例如重复激活同一候选快照、回退到未知版本，
+    或版本状态持久化失败。
+    """
+
+
 class Unauthorized(HTTPException):
     """项目内部接口说明。"""
 
